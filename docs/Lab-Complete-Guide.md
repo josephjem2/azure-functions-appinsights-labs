@@ -1,17 +1,31 @@
 # Consolidated Lab – Azure Functions Monitoring with Application Insights
 
+<style>
+a {
+    text-decoration: none;
+    color: #464feb;
+}
+tr th, tr td {
+    border: 1px solid #e6e6e6;
+}
+tr th {
+    background-color: #f5f5f5;
+}
+</style>
+
 This single, detailed lab replaces the earlier split labs and provides one complete end-to-end experience for monitoring Azure Functions with Application Insights, Azure Monitor, Log Analytics, and Kusto Query Language (KQL).
 
-The goal is to walk you through the full lifecycle of observability:
+The goal is to walk you through the full lifecycle of observability in one continuous flow:
 
 1. create the monitoring resources
-2. deploy and instrument an Azure Function
-3. generate telemetry
-4. validate health and performance
-5. investigate failures
-6. trace dependencies
-7. configure alerts
-8. create a reusable Azure Operations Dashboard for the operations team
+2. open and prepare the existing Azure Function App
+3. deploy a simple HealthCheck function from VS Code
+4. generate telemetry
+5. validate health and performance
+6. investigate failures
+7. trace dependencies
+8. configure alerts
+9. create a reusable Azure Operations Dashboard for the operations team
 
 By the end of this lab, you will be able to operate confidently with telemetry data in Azure and explain how to diagnose issues in a function-based application.
 
@@ -41,7 +55,7 @@ flowchart LR
     B --> E[🔗 Outbound Dependencies]
 ```
 
-This lab covers the full monitoring path from request to insight.
+This lab covers the full monitoring path from request to insight, using the same Function App and telemetry flow throughout the exercises.
 
 ---
 
@@ -53,22 +67,24 @@ Before you begin, make sure you have:
 - access to the Azure portal
 - permission to create resources
 - Visual Studio Code
+- Azure Functions extension
+- Azure Account extension
 - Azure Functions Core Tools v4
-- .NET 8 SDK
+- PowerShell 7
 
 ### Verify your local environment
 
 Run the following commands:
 
 ```bash
-dotnet --list-sdks
 func --version
+pwsh --version
 ```
 
 Expected results:
 
-- .NET 8 SDK is installed
 - Azure Functions Core Tools v4 is installed
+- PowerShell 7 is available
 
 ---
 
@@ -123,97 +139,287 @@ IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/
 
 ---
 
-## Exercise 2 – Create the Azure Function App from the Azure portal
+## Exercise 2 – Open and validate the existing Flex Consumption Function App
 
-### Step 2.1 – Create the Function App
+### Step 2.1 – Open the Function App in Azure Portal
 
-1. In the Azure portal, go to Function Apps.
-2. Select Create.
-3. Configure the app with the following values:
+1. Sign in to the Azure portal.
+2. Navigate to the resource group:
 
-| Setting | Value |
+```text
+MonitoredAssets
+```
+
+3. Open the Function App named:
+
+```text
+bcfu-functions
+```
+
+4. Verify the following settings:
+
+| Setting | Expected value |
 | --- | --- |
-| Runtime stack | .NET 8 |
-| Hosting plan | Consumption |
-| Operating system | Windows |
-| Resource Group | MonitoredAssets |
+| Status | Running |
+| Operating system | Linux |
+| Hosting plan | Flex Consumption |
+| Memory | 512 MB |
 
-4. Review and create the function app.
+✅ Expected result: the Function App exists and is ready for deployment.
 
-✅ Expected result: the Function App is deployed.
+### Step 2.2 – Review the deployment experience
 
-### Step 2.2 – Enable Application Insights during creation
+When you open the Function App, you should see the message:
 
-1. In the Monitoring section of the create experience, enable Application Insights.
-2. Select the Application Insights resource you created earlier.
-3. Complete the deployment.
+```text
+Create functions in your preferred environment
+```
 
-✅ Expected result: the Function App is connected to Application Insights.
+with deployment options including:
+
+- VS Code Desktop
+- Other editors / CLI
+
+This confirms that the Function App has been created, but no function has been deployed yet.
 
 ---
 
-## Exercise 3 – Create and deploy a health-check function from the Azure portal
+## Exercise 3 – Create the telemetry source using Azure Functions in VS Code
 
-### Step 3.1 – Create a new HTTP-triggered function
+### Objective
 
-1. Open the Function App in the portal.
-2. Go to Functions.
-3. Select Create.
-4. Choose HTTP Trigger.
+Create a simple Azure Function that generates telemetry in Application Insights and Azure Monitor.
 
-### Step 3.2 – Configure the function
+This Azure Function becomes the monitored workload for:
 
-Use the following values:
+- Telemetry Validation
+- Failure Investigation
+- Dependency Analysis
+- Exception Analysis
+- Dashboard Design
+- Workbook Design
+- Alert Validation
+
+### Step 3.1 – Open Visual Studio Code
+
+1. Open Visual Studio Code.
+2. Install or confirm the following extensions are available:
+   - Azure Functions
+   - Azure Account
+
+### Step 3.2 – Create a new Azure Functions project
+
+1. Open the Command Palette.
+2. Select:
+
+```text
+Azure Functions: Create New Project
+```
+
+3. Use the following values:
 
 | Setting | Value |
 | --- | --- |
+| Language | PowerShell |
+| Template | HTTP Trigger |
 | Name | HealthCheck |
 | Authorization | Anonymous |
 
-### Step 3.3 – Replace the generated code
+### Step 3.3 – Review the generated files
 
-Use the following implementation:
+VS Code creates the following project structure:
 
-```csharp
-_logger.LogInformation("HealthCheck Function Executed");
-
-var response = req.CreateResponse(HttpStatusCode.OK);
-response.WriteString("Telemetry validation successful");
-
-return response;
+```text
+host.json
+HealthCheck/
+├── function.json
+└── run.ps1
 ```
 
-5. Save the function.
+Verify that the project structure exists before continuing.
 
-✅ Expected result: the function is deployed and ready to run.
+### Step 3.4 – Implement the HealthCheck function
+
+Replace the generated function code with the following PowerShell implementation:
+
+```powershell
+using namespace System.Net
+
+param($Request, $TriggerMetadata)
+
+Write-Host "HealthCheck Function Executed"
+
+$body = @{
+
+    status = "Healthy"
+
+    message = "Telemetry validation successful"
+
+} | ConvertTo-Json
+
+Push-OutputBinding -Name Response -Value (
+
+    [HttpResponseContext]@{
+
+        StatusCode = [HttpStatusCode]::OK
+
+        Body = $body
+
+    }
+
+)
+```
+
+This implementation generates:
+
+- Requests: invocation telemetry
+- Traces: HealthCheck Function Executed
+- Duration: request execution duration
+- Success: HTTP 200 response
+- Correlation: operation Id generated automatically
+
+### Step 3.5 – Deploy to Azure
+
+1. In VS Code, open the Command Palette.
+2. Select:
+
+```text
+Azure Functions: Deploy to Function App
+```
+
+3. Choose the Function App:
+
+```text
+bcfu-functions
+```
+
+4. Confirm the deployment.
+
+✅ Expected result: deployment completes successfully.
+
+### Step 3.6 – Validate function registration
+
+1. Return to the Azure portal.
+2. Open the Function App:
+
+```text
+bcfu-functions
+```
+
+3. Go to Functions.
+
+Expected result:
+
+- HealthCheck appears
+- It is an HTTP Trigger
+- It is enabled
+
+This confirms Azure successfully indexed the function.
+
+### Step 3.7 – Test the function
+
+1. Open the function named HealthCheck.
+2. Select Code + Test.
+3. Select Test / Run.
+4. Use the following values:
+
+| Setting | Value |
+| --- | --- |
+| Method | GET |
+| Body | Empty |
+
+5. Select Run.
+
+Expected response:
+
+```json
+{
+  "status": "Healthy",
+  "message": "Telemetry validation successful"
+}
+```
+
+Expected status:
+
+```text
+HTTP 200 OK
+```
+
+### Step 3.8 – Generate telemetry
+
+Run the function approximately 10–20 times.
+
+This creates enough telemetry for the remaining exercises in this lab.
+
+### Step 3.9 – Validate request telemetry
+
+1. Open the Application Insights resource connected to the Function App.
+2. Open Logs.
+3. Run the following query:
+
+```kusto
+requests
+| order by timestamp desc
+```
+
+Validate these fields:
+
+- request name
+- success status
+- result code
+- duration
+- operation_Id
+
+### Step 3.10 – Validate trace telemetry
+
+Run the following query:
+
+```kusto
+traces
+| order by timestamp desc
+```
+
+Expected result: messages such as:
+
+```text
+HealthCheck Function Executed
+```
+
+appear in the telemetry stream.
 
 ---
 
-## Exercise 4 – Generate telemetry
+## Exercise 4 – Validate telemetry generation from the deployed function
 
 ### Step 4.1 – Invoke the function
 
-1. Open the function in the portal.
-2. Select Code + Test.
-3. Run the function several times.
+1. Return to the Function App in the Azure portal.
+2. Open the HealthCheck function.
+3. Select Code + Test.
+4. Run the function several times.
 
 ### Step 4.2 – Observe the response
 
 You should see a response similar to:
 
-```text
-Telemetry validation successful
+```json
+{
+  "status": "Healthy",
+  "message": "Telemetry validation successful"
+}
 ```
 
 ### Step 4.3 – Confirm telemetry creation
 
 After invoking the function, telemetry should begin flowing to Application Insights.
 
-✅ Expected result: requests, traces, and related telemetry are generated.
+✅ Expected result: requests, traces, and related telemetry are generated for the same HealthCheck workload.
 
 ---
 
 ## Exercise 5 – Validate telemetry in Application Insights
+
+At this point, the Function App is deployed and generating telemetry. The next steps show how to verify that the monitoring pipeline is working end to end.
 
 ### Step 5.1 – Open Application Insights logs
 
@@ -266,6 +472,8 @@ exceptions
 ---
 
 ## Exercise 6 – Investigate a known failure
+
+Once the baseline telemetry is visible, the next step is to create a controlled failure so you can practice investigating what the monitoring tools show.
 
 ### Step 6.1 – Simulate a downstream failure
 
@@ -446,7 +654,7 @@ Trigger a failure and verify that the alert becomes active or appears in alert h
 
 ## Exercise 10 – Create an Azure Operations Dashboard
 
-This exercise adds an operational dashboard so the support or operations team can review the health of the Function App in a single place. The dashboard will bring together request volume, failures, exception trends, recent failed operations, and an Application Map view.
+This final exercise turns the telemetry you collected into an operational view that an operations team can reuse. The dashboard brings together request volume, failures, exception trends, recent failed operations, and an Application Map view so the monitoring story is visible in one place.
 
 > Important note: the original demo references tables such as SecurityEvent, Heartbeat, and Perf. Those are not required for this Azure Functions lab. This exercise uses Application Insights telemetry directly.
 
