@@ -14,65 +14,23 @@ This repository contains practical labs focused on:
 - Telemetry Correlation
 - Failure Investigation
 
-## Labs
+## Single Lab Guide
 
-### Lab 1 – Telemetry Health Check
+### Azure Functions Monitoring with Application Insights
 
-Validate:
+This repository now contains one comprehensive, end-to-end lab that covers the full monitoring workflow in a single place.
 
-- Application Insights connectivity
-- Requests
-- Traces
-- Exceptions
-- Live Metrics
-- Telemetry correlation using operation_Id
+It includes:
 
-See [Lab 01](docs/Lab01-Telemetry-Health-Check.md).
+- creating monitoring resources
+- connecting Azure Functions to Application Insights
+- generating and validating telemetry
+- investigating failures with KQL
+- tracing dependencies
+- configuring alerts and health monitoring
+- creating an Azure Operations Dashboard
 
-### Lab 2 – Known Failure Investigation
-
-Investigate:
-
-- Failed requests
-- Exceptions
-- Dependency failures
-- Transaction timelines
-- Failure boundaries
-
-See [Lab 02](docs/Lab02-Known-Failure-Investigation.md).
-
-### Lab 3 – KQL Fundamentals
-
-Learn:
-
-- basic KQL syntax
-- filtering telemetry
-- summarizing requests and failures
-- building simple investigation queries
-
-See [Lab 03](docs/Lab03-KQL-Fundamentals.md).
-
-### Lab 4 – Dependency Tracing
-
-Explore:
-
-- dependency telemetry
-- failed outbound calls
-- slow dependencies
-- correlation with requests and exceptions
-
-See [Lab 04](docs/Lab04-Dependency-Tracing.md).
-
-### Lab 5 – Alerts and Health Monitoring
-
-Understand:
-
-- Azure Monitor alerts
-- health signals and availability
-- alert thresholds and notifications
-- proactive monitoring practices
-
-See [Lab 05](docs/Lab05-Alerts-and-Health-Monitoring.md).
+Start here: [Complete Lab Guide](docs/Lab-Complete-Guide.md).
 
 ## Prerequisites
 
