@@ -428,7 +428,9 @@ traces
 
 ---
 
-## Phase 4 – Azure Operations Dashboard and Workbook Design
+## Phase 4 – Azure Operations Dashboard and Workbook Design (Updated)
+
+Now that Exercise 3 is complete and HealthCheck Azure Function telemetry is flowing into Application Insights, Phase 4 focuses on building an operational monitoring experience using Azure Dashboards and Azure Monitor Workbooks. Azure Dashboards provide a focused and organized view of resources and monitoring data, while Workbooks provide richer operational analysis and investigation capabilities. [Create a dashboard in the Azure portal](https://learn.microsoft.com/en-us/azure/azure-portal/azure-portal-dashboards), [Azure portal documentation](https://learn.microsoft.com/en-us/azure/azure-portal/)
 
 ### Objective
 
@@ -443,37 +445,34 @@ At the end of Phase 4 you will have:
 - Executive monitoring workbook
 - Technical investigation workbook
 
-### Phase 4.1 – Create Azure dashboard
+### Phase 4.1 – Create Azure Dashboard
 
-#### Step 1
+#### Objective
 
-Open the Azure portal and search for:
+Create a centralized monitoring dashboard for the BFCU Monitoring Assessment PoC.
 
-```text
-Dashboard
-```
+#### Steps
 
-Then select Dashboard.
-
-#### Step 2
-
-Select:
-
-```text
-+ New dashboard
-```
-
-Dashboard name:
+1. Sign in to Azure Portal.
+2. Search for Dashboard.
+3. Select Create and then Custom Dashboard.
+4. Name the dashboard:
 
 ```text
 BFCU Monitoring Operations Dashboard
 ```
 
-### Phase 4.2 – Dashboard tile #1: Request Volume
+5. Save the dashboard.
 
-Purpose: show workload activity over time.
+Azure Dashboards are customizable workspaces that can contain charts, metrics, tables, markdown content, and Azure resource information. [Create a dashboard in the Azure portal](https://learn.microsoft.com/en-us/azure/azure-portal/azure-portal-dashboards), [Use a Markdown tile on Azure dashboards](https://learn.microsoft.com/en-us/azure/azure-portal/azure-portal-markdown-tile)
 
-Application Insights query:
+### Phase 4.2 – KPI Tile: Request Volume
+
+#### Purpose
+
+Show HealthCheck traffic over time.
+
+#### KQL
 
 ```kusto
 requests
@@ -482,16 +481,24 @@ requests
 | render timechart
 ```
 
-Configure tile:
+#### Dashboard Tile
 
 - Title: Request Volume
-- Shows: traffic trends, workload activity, request spikes
+- Visualization: Time Chart
 
-### Phase 4.3 – Dashboard tile #2: Success Rate
+Expected:
 
-Purpose: measure availability.
+- Traffic trend
+- Request spikes
+- Request frequency
 
-Query:
+### Phase 4.3 – KPI Tile: Success Rate
+
+#### Purpose
+
+Monitor service availability.
+
+#### KQL
 
 ```kusto
 requests
@@ -502,58 +509,101 @@ requests
 | extend SuccessRate = round((todouble(Successful) / todouble(Total)) * 100, 2)
 ```
 
-Expected: 100% when all requests succeed.
-
-Pin to dashboard:
+#### Dashboard Tile
 
 - Title: Success Rate
 
-### Phase 4.4 – Dashboard tile #3: Response Time
+Expected:
 
-Purpose: measure performance.
+```text
+100%
+```
 
-Query:
+Current telemetry shows successful HTTP 200 responses. Based on the validated logs, HealthCheck requests completed successfully. [Create a dashboard in the Azure portal](https://learn.microsoft.com/en-us/azure/azure-portal/azure-portal-dashboards)
+
+### Phase 4.4 – KPI Tile: Response Time
+
+#### Purpose
+
+Monitor service performance.
+
+#### KQL
 
 ```kusto
 requests
 | where name == "HealthCheck"
-| summarize AvgDurationMs = avg(duration / 1ms) by bin(timestamp, 1m)
-| render timechart
+| summarize AvgDurationMs = avg(duration / 1ms)
 ```
 
-Pin tile:
+#### Dashboard Tile
 
 - Title: Average Response Time
-- Current values should be around 5 ms based on current telemetry
 
-### Phase 4.5 – Dashboard tile #4: Current Health
+Expected:
 
-Query:
-
-```kusto
-requests
-| where timestamp > ago(24h)
-| summarize
-    Requests = count(),
-    Successes = countif(success == true),
-    Failures = countif(success == false)
+```text
+5-15 ms
 ```
 
-Pin tile:
+Based on the telemetry already validated.
 
-- Title: Current Health Status
+### Phase 4.5 – KPI Tile: Failed Requests
 
-### Phase 4.6 – Dashboard tile #5: Recent Operations
+#### Purpose
 
-Purpose: investigation view.
+Detect outages or failures.
 
-Query:
+#### KQL
 
 ```kusto
 requests
+| where success == false
+| summarize FailureCount = count()
+```
+
+#### Dashboard Tile
+
+- Title: Failed Requests
+
+Current expected result:
+
+```text
+0
+```
+
+### Phase 4.6 – KPI Tile: Total Requests
+
+#### Purpose
+
+Provide operational workload volume.
+
+#### KQL
+
+```kusto
+requests
+| where name == "HealthCheck"
+| summarize TotalRequests = count()
+```
+
+#### Dashboard Tile
+
+- Title: Total Requests
+
+Expected: reflects all testing performed during Exercise 3.
+
+### Phase 4.7 – Operations Investigation Table
+
+#### Purpose
+
+Allow operators to review recent executions.
+
+#### KQL
+
+```kusto
+requests
+| where name == "HealthCheck"
 | project
     timestamp,
-    name,
     resultCode,
     success,
     duration,
@@ -562,79 +612,67 @@ requests
 | take 20
 ```
 
-This becomes your operational investigation table.
+#### Dashboard Tile
 
-### Phase 4.7 – Dashboard tile #6: Top Operations
+- Title: Recent Operations
 
-Query:
+Shows:
 
-```kusto
-requests
-| summarize Count = count() by name
-| order by Count desc
-```
+- Time
+- Result Code
+- Success State
+- Duration
+- Operation ID
 
-Pin tile:
-
-- Title: Top Operations
-
-Expected top operation:
+### Phase 4.8 – Dashboard Layout
 
 ```text
-HealthCheck
++------------------------------------------------+
+| Request Volume | Success Rate | Response Time |
++------------------------------------------------+
+| Total Requests | Failures     | Health Status |
++------------------------------------------------+
+| Recent Operations Table                        |
++------------------------------------------------+
 ```
 
-### Phase 4.8 – Dashboard layout
+Recommended by Azure dashboard design practices where tiles can be resized and rearranged as needed. [Create a dashboard in the Azure portal](https://learn.microsoft.com/en-us/azure/azure-portal/azure-portal-dashboards), [The structure of Azure dashboards](https://learn.microsoft.com/en-us/azure/azure-portal/azure-portal-dashboards-structure)
 
-Row 1:
+### Phase 4.9 – Create Azure Monitor Workbook
 
-- Request Volume
-- Success Rate
-- Average Response Time
+Search:
 
-Row 2:
+```text
+Azure Monitor
+```
 
-- Current Health Status
-- Top Operations
-
-Row 3:
-
-- Recent Operations
-
-### Phase 4.9 – Create monitoring workbook
-
-In the Azure portal, search for:
+Select:
 
 ```text
 Workbooks
 ```
 
-Then select:
-
-```text
-+ New Workbook
-```
-
-Workbook name:
+Create:
 
 ```text
 BFCU Monitoring Workbook
 ```
 
-#### Section 1 – Executive Summary
+Azure Monitor Workbooks provide interactive reports that combine KQL queries, charts, tables, and text into a single monitoring experience. [Azure portal documentation](https://learn.microsoft.com/en-us/azure/azure-portal/)
 
-Add a text control with content such as:
+#### Workbook Section 1 – Executive Summary
+
+Add a text control:
 
 ```text
-BFCU Monitoring Overview
+BFCU Monitoring Assessment PoC
 
-This workbook provides operational visibility into application health, service reliability,
-request volume, performance trends, and failure investigations.
+This workbook provides operational telemetry visibility for Azure Functions,
+Application Insights, Azure Monitor, performance monitoring, availability
+monitoring, and incident investigation.
 ```
 
-#### Section 2 – Request Trends
-
-Add a query control:
+#### Workbook Section 2 – Request Trend Chart
 
 ```kusto
 requests
@@ -642,25 +680,22 @@ requests
 | render timechart
 ```
 
-Visualization: Time chart
+Visualization: Time Series Chart
 
-Title: Request Volume
-
-#### Section 3 – Availability
+#### Workbook Section 3 – Availability
 
 ```kusto
 requests
 | summarize
     Total = count(),
-    Successful = countif(success == true)
+    Successful = countif(success == true),
+    Failed = countif(success == false)
 | extend AvailabilityPercent = round((todouble(Successful) / todouble(Total)) * 100, 2)
 ```
 
-Visualization: Tiles
+Visualization: KPI Cards
 
-Title: Success Rate
-
-#### Section 4 – Performance
+#### Workbook Section 4 – Performance
 
 ```kusto
 requests
@@ -670,27 +705,46 @@ requests
     MaxMs = max(duration / 1ms)
 ```
 
-Visualization: Grid
+Visualization: Metrics Grid
 
-Title: Average Response Time Metrics
-
-#### Section 5 – Operational Investigation
+#### Workbook Section 5 – Investigation Console
 
 ```kusto
 requests
 | project
     timestamp,
     name,
-    success,
     resultCode,
+    success,
     duration,
     operation_Id
 | order by timestamp desc
 ```
 
-Visualization: Table
+Visualization: Interactive Table
 
-Title: Recent Operations
+### Phase 4 Deliverables
+
+- ✅ Azure Dashboard created
+- ✅ Request Volume monitoring
+- ✅ Success Rate monitoring
+- ✅ Response Time monitoring
+- ✅ Failure monitoring
+- ✅ Operations investigation table
+- ✅ Azure Monitor Workbook created
+- ✅ Executive monitoring view
+- ✅ Operations troubleshooting view
+- ✅ Real Application Insights telemetry integrated
+
+### Phase 4 Status
+
+**Current Status: COMPLETE DESIGN / READY TO BUILD**
+
+Next phase:
+
+Phase 5 – Azure Monitor Alerts and Controlled Failure Investigation
+
+This is where you intentionally generate failures in the HealthCheck function and create Azure Monitor alert rules against real Application Insights telemetry.
 
 ---
 
