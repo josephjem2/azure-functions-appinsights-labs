@@ -184,63 +184,59 @@ This confirms that the Function App has been created, but no function has been d
 
 ---
 
-## Exercise 3 – Create the telemetry source using Azure Functions in VS Code
+## Exercise 3 – Telemetry Validation Using Azure Functions
 
 ### Objective
 
-Create a simple Azure Function that generates telemetry in Application Insights and Azure Monitor.
+Create a lightweight Azure Function that generates telemetry for monitoring validation.
 
-This Azure Function becomes the monitored workload for:
+This function becomes the monitored workload used in:
 
-- Telemetry Validation
+- Telemetry Readiness Assessment
 - Failure Investigation
-- Dependency Analysis
-- Exception Analysis
+- Operational Pattern Analysis
 - Dashboard Design
 - Workbook Design
-- Alert Validation
+- Alert Strategy Design
 
-### Step 3.1 – Open Visual Studio Code
+### Step 3.1 – Validate existing Function App
 
-1. Open Visual Studio Code.
-2. Install or confirm the following extensions are available:
-   - Azure Functions
-   - Azure Account
-
-### Step 3.2 – Create a new Azure Functions project
-
-1. Open the Command Palette.
-2. Select:
-
-```text
-Azure Functions: Create New Project
-```
-
-3. Use the following values:
+Verify that the Azure Function App already exists.
 
 | Setting | Value |
 | --- | --- |
-| Language | PowerShell |
-| Template | HTTP Trigger |
-| Name | HealthCheck |
-| Authorization | Anonymous |
+| Function App | bcfu-functions |
+| Resource Group | MonitoredAssets |
+| Hosting Plan | Flex Consumption |
+| OS | Linux |
+| Runtime | PowerShell |
+| Status | Running |
 
-### Step 3.3 – Review the generated files
-
-VS Code creates the following project structure:
+Expected result:
 
 ```text
-host.json
-HealthCheck/
-├── function.json
-└── run.ps1
+Function App available and healthy.
 ```
 
-Verify that the project structure exists before continuing.
+### Step 3.2 – Create HTTP trigger function
 
-### Step 3.4 – Implement the HealthCheck function
+Create the function with the following values:
 
-Replace the generated function code with the following PowerShell implementation:
+| Setting | Value |
+| --- | --- |
+| Function Name | HealthCheck |
+| Trigger Type | HTTP Trigger |
+| Authorization | Anonymous |
+
+Expected result:
+
+```text
+HealthCheck function appears under the Functions blade.
+```
+
+### Step 3.3 – Implement telemetry logic
+
+Deploy the following function logic:
 
 ```powershell
 using namespace System.Net
@@ -250,176 +246,178 @@ param($Request, $TriggerMetadata)
 Write-Host "HealthCheck Function Executed"
 
 $body = @{
-
-    status = "Healthy"
-
-    message = "Telemetry validation successful"
-
-} | ConvertTo-Json
+    Status    = "Healthy"
+    Message   = "Telemetry validation successful"
+    Timestamp = (Get-Date).ToUniversalTime().ToString("o")
+}
 
 Push-OutputBinding -Name Response -Value (
-
     [HttpResponseContext]@{
-
         StatusCode = [HttpStatusCode]::OK
-
-        Body = $body
-
+        Body       = ($body | ConvertTo-Json)
     }
-
 )
 ```
 
-This implementation generates:
+Telemetry generated:
 
-- Requests: invocation telemetry
-- Traces: HealthCheck Function Executed
-- Duration: request execution duration
-- Success: HTTP 200 response
-- Correlation: operation Id generated automatically
+| Signal | Result |
+| --- | --- |
+| Request Telemetry | Yes |
+| Trace Telemetry | Yes |
+| Response Duration | Yes |
+| operation_Id | Yes |
+| Success Status | Yes |
 
-### Step 3.5 – Deploy to Azure
+### Step 3.4 – Start function host
 
-1. In VS Code, open the Command Palette.
-2. Select:
+Run:
 
-```text
-Azure Functions: Deploy to Function App
+```powershell
+func start
 ```
 
-3. Choose the Function App:
+Expected output:
 
 ```text
-bcfu-functions
+Functions:
+
+HealthCheck:
+  [GET, POST]
+
+http://localhost:7071/api/HealthCheck
 ```
 
-4. Confirm the deployment.
+### Step 3.5 – Execute function
 
-✅ Expected result: deployment completes successfully.
-
-### Step 3.6 – Validate function registration
-
-1. Return to the Azure portal.
-2. Open the Function App:
+Open this URL in the browser:
 
 ```text
-bcfu-functions
+http://localhost:7071/api/HealthCheck
 ```
-
-3. Go to Functions.
 
 Expected result:
 
-- HealthCheck appears
-- It is an HTTP Trigger
-- It is enabled
-
-This confirms Azure successfully indexed the function.
-
-### Step 3.7 – Test the function
-
-1. Open the function named HealthCheck.
-2. Select Code + Test.
-3. Select Test / Run.
-4. Use the following values:
-
-| Setting | Value |
-| --- | --- |
-| Method | GET |
-| Body | Empty |
-
-5. Select Run.
-
-Expected response:
-
 ```json
 {
-  "status": "Healthy",
-  "message": "Telemetry validation successful"
+  "Message": "Telemetry validation successful",
+  "Timestamp": "2026-07-31T01:34:43.3961978Z",
+  "Status": "Healthy"
 }
 ```
 
-Expected status:
+✅ Validation complete.
 
-```text
-HTTP 200 OK
+### Step 3.6 – Generate test telemetry
+
+Generate multiple requests:
+
+```powershell
+1..20 | ForEach-Object {
+    Invoke-RestMethod `
+      -Uri "http://localhost:7071/api/HealthCheck"
+}
 ```
 
-### Step 3.8 – Generate telemetry
+Purpose: create enough telemetry for:
 
-Run the function approximately 10–20 times.
+- Investigation
+- Dashboards
+- Workbooks
+- Alert Testing
 
-This creates enough telemetry for the remaining exercises in this lab.
+### Step 3.7 – Validate requests
 
-### Step 3.9 – Validate request telemetry
-
-1. Open the Application Insights resource connected to the Function App.
-2. Open Logs.
-3. Run the following query:
+Application Insights query:
 
 ```kusto
 requests
 | order by timestamp desc
 ```
 
-Validate these fields:
+Verify:
 
-- request name
-- success status
-- result code
-- duration
+- Request Name
+- ResultCode
+- Success
+- Duration
 - operation_Id
 
-### Step 3.10 – Validate trace telemetry
-
-Run the following query:
+### Step 3.8 – Validate traces
 
 ```kusto
 traces
 | order by timestamp desc
 ```
 
-Expected result: messages such as:
+Verify that:
 
 ```text
 HealthCheck Function Executed
 ```
 
-appear in the telemetry stream.
+appears.
+
+### Step 3.9 – Telemetry readiness assessment
+
+Run:
+
+```kusto
+union requests, dependencies, exceptions, traces
+| summarize Records=count() by $table
+| order by Records desc
+```
+
+Document:
+
+| Category | Result |
+| --- | --- |
+| Requests | Present |
+| Traces | Present |
+| Exceptions | Review |
+| Dependencies | Review |
+| Correlation IDs | Present |
+| Monitoring Ready | Yes |
 
 ---
 
-## Exercise 4 – Validate telemetry generation from the deployed function
+## Exercise 4 – Confirm telemetry flow from local function execution
 
-### Step 4.1 – Invoke the function
+### Step 4.1 – Keep the Function host running
 
-1. Return to the Function App in the Azure portal.
-2. Open the HealthCheck function.
-3. Select Code + Test.
-4. Run the function several times.
+Verify that the Function host from Exercise 3 is still running and that this endpoint is reachable:
 
-### Step 4.2 – Observe the response
+```text
+http://localhost:7071/api/HealthCheck
+```
+
+### Step 4.2 – Invoke the function repeatedly
+
+Run the endpoint in a browser or terminal several times (for example, 10 requests) to create additional telemetry volume.
+
+### Step 4.3 – Validate the function response
 
 You should see a response similar to:
 
 ```json
 {
-  "status": "Healthy",
-  "message": "Telemetry validation successful"
+    "Message": "Telemetry validation successful",
+    "Timestamp": "2026-07-31T...",
+    "Status": "Healthy"
 }
 ```
 
-### Step 4.3 – Confirm telemetry creation
+### Step 4.4 – Confirm telemetry ingestion
 
-After invoking the function, telemetry should begin flowing to Application Insights.
+Wait 1 to 3 minutes, then continue to Exercise 5 to validate requests, traces, and exceptions in Application Insights.
 
-✅ Expected result: requests, traces, and related telemetry are generated for the same HealthCheck workload.
+✅ Expected result: local invocations are accepted, and telemetry is available for investigation in the next exercise.
 
 ---
 
 ## Exercise 5 – Validate telemetry in Application Insights
 
-At this point, the Function App is deployed and generating telemetry. The next steps show how to verify that the monitoring pipeline is working end to end.
+At this point, the HealthCheck function is generating telemetry. The next steps show how to verify that the monitoring pipeline is working end to end.
 
 ### Step 5.1 – Open Application Insights logs
 
@@ -479,24 +477,38 @@ Once the baseline telemetry is visible, the next step is to create a controlled 
 
 Update the function to make an outbound HTTP call to an invalid endpoint so the request fails.
 
-Example:
+Example (PowerShell):
 
-```csharp
-using var client = new HttpClient();
+```powershell
+using namespace System.Net
 
-try
-{
-    _logger.LogInformation("Calling downstream dependency");
+param($Request, $TriggerMetadata)
 
-    var response = await client.GetAsync("https://example.invalid/health");
-    response.EnsureSuccessStatusCode();
+Write-Host "HealthCheck Function Executed"
 
-    return req.CreateResponse(HttpStatusCode.OK);
+try {
+    Write-Host "Calling downstream dependency"
+
+    # example.invalid is intentionally unreachable for failure simulation
+    $null = Invoke-RestMethod -Uri "https://example.invalid/health" -Method Get -TimeoutSec 5
+
+    $body = @{
+        Status    = "Healthy"
+        Message   = "Dependency call succeeded"
+        Timestamp = (Get-Date).ToUniversalTime()
+    } | ConvertTo-Json
+
+    Push-OutputBinding -Name Response -Value (
+        [HttpResponseContext]@{
+            StatusCode = [HttpStatusCode]::OK
+            Body       = $body
+            Headers    = @{ "Content-Type" = "application/json" }
+        }
+    )
 }
-catch (Exception ex)
-{
-    _logger.LogError(ex, "Dependency call failed");
-    throw;
+catch {
+    Write-Host "Dependency call failed"
+    throw
 }
 ```
 
@@ -637,7 +649,7 @@ requests
 1. Open Azure Monitor.
 2. Go to Alerts.
 3. Select Create and then Alert rule.
-4. Choose your Function App or Application Insights resource as the scope.
+4. Select your Function App or Application Insights resource as the scope.
 5. Define a simple condition such as:
    - failed requests greater than 0
    - for a short time window such as 5 minutes
@@ -674,7 +686,7 @@ Before creating the dashboard, verify that you are in the correct Azure context.
 ### Step 10.2 – Create a new dashboard
 
 1. In the Azure portal menu, select Dashboard.
-2. Choose Create.
+2. Select Create.
 3. Select Custom.
 4. Enter the dashboard name:
 
@@ -683,8 +695,8 @@ BFCU-Monitoring-PoC
 ```
 
 5. In the Tile Gallery, add a Metric chart tile.
-6. If available, also add an Application Map tile.
-7. Optionally add additional tiles such as:
+6. If available, add an Application Map tile.
+7. Optionally, add additional tiles such as:
    - Markdown
    - Clock
    - Resource groups
@@ -705,7 +717,7 @@ BFCU-Monitoring-PoC
 BFCU-Monitoring-PoC
 ```
 
-4. Choose the subscription where the dashboard resource should live.
+4. Select the subscription where the dashboard resource should live.
 5. Select an existing resource group or create a new one such as:
 
 ```text
@@ -723,7 +735,7 @@ rg-bfcu-monitoring-dashboards
 
 1. Open the dashboard.
 2. Select Edit.
-3. In the Metric chart tile, choose Configure or Edit in Metrics.
+3. In the Metric chart tile, select Configure or Edit in Metrics.
 4. Set the metric scope using the relevant resource:
 
 | Setting | Recommended value |
@@ -733,7 +745,7 @@ rg-bfcu-monitoring-dashboards
 | Resource type | Function App or Application Insights |
 | Resource | Your Function App or its connected Application Insights resource |
 
-5. Choose a metric that is actually available in Metrics Explorer. Good choices include:
+5. Select a metric that is available in Metrics Explorer. Recommended metrics include:
    - Requests
    - HTTP server errors
    - Average response time
@@ -764,9 +776,9 @@ HealthCheck Request Volume
 
 1. Return to the dashboard.
 2. Select Edit.
-3. In the Application Map tile, choose Configure tile.
+3. In the Application Map tile, select Configure tile.
 4. Select the same subscription and resource group that contains the Application Insights resource.
-5. Choose the Application Insights resource connected to your Function App.
+5. Select the Application Insights resource connected to your Function App.
 6. Select Apply.
 7. Save the dashboard.
 
@@ -803,9 +815,9 @@ AppRequests
 ```
 
 4. After the chart renders, select Pin to dashboard.
-5. Choose Azure Dashboard.
+5. Select Azure Dashboard.
 6. Select the dashboard subscription.
-7. Choose BFCU-Monitoring-PoC.
+7. Select BFCU-Monitoring-PoC.
 8. Select Pin or Apply.
 
 ✅ Expected result: a time-chart tile for request volume appears on the dashboard.
@@ -967,7 +979,7 @@ AppRequests
 Recent Failed Operations
 ```
 
-✅ Expected result: the dashboard shows recent failed operations, including operation identifiers that can be used during deeper investigations.
+✅ Expected result: the dashboard shows recent failed operations, including operation_Id values that can be used during deeper investigations.
 
 ### Step 10.11 – Add operational guidance with a Markdown tile
 
