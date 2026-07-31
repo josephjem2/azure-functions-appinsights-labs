@@ -1078,147 +1078,358 @@ Assessment result:
 
 ---
 
-## Exercise 9 – Configure alerts and health monitoring (Completed)
+## Phase 5 – Azure Monitor Alerts and Failure Investigation
 
-### Objective
+Now that you have:
 
-Convert telemetry signals into proactive monitoring with actionable alerting.
+- ✅ Azure Function running
+- ✅ Application Insights receiving telemetry
+- ✅ HealthCheck requests visible in KQL
+- ✅ Azure Dashboard designed
+- ✅ Workbook designed
 
-### Step 9.1 – Review health signals
+You can build the alerting and incident response portion of the BFCU Monitoring Assessment PoC.
 
-Health review completed in Application Insights Overview and Metrics.
+### Phase 5.1 – Create a controlled failure scenario
 
-Signals reviewed:
+#### Objective
 
-- request volume
-- failures
-- availability
+Generate failures safely so Azure Monitor can detect:
 
-Result:
+- Failed Requests
+- Exceptions
+- Alert Conditions
+- Incident Investigation Data
 
-- ✅ Baseline health posture confirmed
+Keep the healthy endpoint:
 
-### Step 9.2 – Create alert rule
+```text
+GET /api/HealthCheck
+```
 
-Alert rule configured with the following profile:
+Returns:
 
-| Setting | Value |
+```json
+{
+  "status": "Healthy"
+}
+```
+
+Add a failure path:
+
+```text
+GET /api/HealthCheck?fail=true
+```
+
+Returns:
+
+```text
+500 Internal Server Error
+```
+
+This creates realistic telemetry for monitoring validation.
+
+### Phase 5.2 – Generate failed requests
+
+After publishing updated code, run:
+
+```powershell
+1..10 | ForEach-Object {
+    Invoke-RestMethod -Uri "http://localhost:7071/api/HealthCheck?fail=true"
+}
+```
+
+Expected:
+
+```text
+HTTP 500
+```
+
+Application Insights should begin collecting:
+
+- Failed requests
+- Exceptions
+- Error traces
+
+### Phase 5.3 – Validate failed requests
+
+Run:
+
+```kusto
+requests
+| where success == false
+| order by timestamp desc
+```
+
+Expected results:
+
+| Field | Expected |
 | --- | --- |
-| Scope | Function App or Application Insights |
-| Condition | Failed requests > 0 |
-| Evaluation Window | 5 minutes |
-| Action Group | Configured |
+| Name | HealthCheck |
+| Success | False |
+| ResultCode | 500 |
+| Duration | Present |
+| Operation Id | Present |
 
-Result:
+### Phase 5.4 – Validate exceptions
 
-- ✅ Alert rule created and enabled
+Run:
 
-### Step 9.3 – Validate alert behavior
+```kusto
+exceptions
+| order by timestamp desc
+```
 
-Failure condition triggered and alert state reviewed in Azure Monitor alert history.
+Expected:
 
-Result:
-
-- ✅ Alert pipeline validated
-
-### Exercise 9 completion status
-
-| Category | Status |
+| Field | Expected |
 | --- | --- |
-| Signal Review | ✅ |
-| Alert Rule Configuration | ✅ |
-| Alert Trigger Validation | ✅ |
+| Timestamp | Present |
+| Type | Exception Type |
+| Message | Failure Message |
+| OperationId | Present |
 
-Assessment result:
+### Phase 5.5 – Create Azure Monitor alert
 
-**Proactive Monitoring Ready**
+Search:
 
----
+```text
+Monitor
+```
 
-## Exercise 10 – Dashboard handoff and validation (Completed)
+Open:
 
-### Objective
+```text
+Alerts
+```
 
-Validate that dashboard and workbook artifacts are complete and ready for operations handoff.
+Select:
 
-### Step 10.1 – Confirm Phase 4 deliverables
+```text
++ Create
+Alert Rule
+```
 
-Phase 4 deliverables verified:
+Azure Monitor supports alert rules against Application Insights and Log Analytics data. [Azure documentation](https://learn.microsoft.com/en-us/azure/)
 
-- Telemetry readiness confirmation
-- Dashboard created and saved as BFCU-Monitoring-PoC
-- Core tiles added (request volume, success rate, response duration, exception trend, top exception types, recent operations)
-- Operations runbook panel added
-- Workbook blueprint documented
+#### Scope
 
-Result:
+Select:
 
-- ✅ Required dashboard artifacts confirmed
+```text
+Application Insights
+```
 
-### Step 10.2 – Validate dashboard accessibility
+Choose:
 
-Accessibility validation completed:
+```text
+bfcu-appinsights
+```
 
-- dashboard opens and renders correctly
-- each tile loads without query errors
-- viewers have access to required resources (Function App, Application Insights, Log Analytics when applicable)
+or your Application Insights resource.
 
-Result:
+### Phase 5.6 – Configure alert condition
 
-- ✅ Dashboard accessibility validated for operations audience
+Select:
 
-### Step 10.3 – Complete operations handoff checklist
+```text
+Failed Requests
+```
 
-Handoff package prepared with:
+Criteria:
 
-- dashboard name and resource group
-- tile purpose and investigation workflow
-- alert ownership and escalation path
-- workbook follow-up requirements
+```text
+Count > 0
+```
 
-Result:
+Evaluation:
 
-- ✅ Operations handoff package completed
+```text
+Every 5 minutes
+```
 
-### Exercise 10 completion status
+Window:
 
-| Category | Status |
+```text
+Last 5 minutes
+```
+
+Alert name:
+
+```text
+HealthCheck Failure Alert
+```
+
+### Phase 5.7 – Action group
+
+Create:
+
+```text
+BFCU Operations Action Group
+```
+
+Actions:
+
+#### Email
+
+Send email to:
+
+```text
+Lab Administrator
+```
+
+#### Optional
+
+- Logic App
+- Webhook
+- SMS
+- Push Notification
+
+Azure Monitor alert rules can invoke action groups for notification and automation workflows. [Azure documentation](https://learn.microsoft.com/en-us/azure/)
+
+### Phase 5.8 – Verify alert
+
+Create failures:
+
+```text
+/api/HealthCheck?fail=true
+```
+
+Wait for alert evaluation.
+
+Expected:
+
+- ✅ Alert Fired
+
+Status:
+
+```text
+Activated
+```
+
+Azure Monitor records the fired alert.
+
+### Phase 5.9 – Failure investigation workbook section
+
+Add new workbook section.
+
+#### Incident Investigation
+
+Query:
+
+```kusto
+requests
+| where success == false
+| project
+    timestamp,
+    name,
+    resultCode,
+    duration,
+    operation_Id
+| order by timestamp desc
+```
+
+Visualization:
+
+```text
+Grid
+```
+
+#### Exception Analysis
+
+```kusto
+exceptions
+| project
+    timestamp,
+    type,
+    outerMessage,
+    operation_Id
+| order by timestamp desc
+```
+
+Visualization:
+
+```text
+Grid
+```
+
+### Phase 5.10 – Dashboard enhancements
+
+Add new dashboard tiles.
+
+#### Active Alerts
+
+Shows:
+
+```text
+Current Alert Count
+```
+
+#### Failed Requests
+
+Shows:
+
+```text
+HTTP 500 Trend
+```
+
+#### Exceptions
+
+Shows:
+
+```text
+Most Recent Exceptions
+```
+
+#### Availability
+
+Shows:
+
+```text
+Availability %
+```
+
+### Updated Architecture
+
+```text
+HealthCheck Function
+          |
+          V
+Application Insights
+          |
+          V
+Azure Monitor
+   |        |
+   V        V
+Dashboard Workbook
+          |
+          V
+Alert Rule
+          |
+          V
+Action Group
+```
+
+### Phase 5 deliverables
+
+- ✅ Successful Requests Monitoring
+- ✅ Failed Requests Monitoring
+- ✅ Exception Monitoring
+- ✅ Azure Dashboard
+- ✅ Azure Monitor Workbook
+- ✅ Azure Monitor Alert Rule
+- ✅ Action Group Notification
+- ✅ Incident Investigation Experience
+- ✅ End-to-End Monitoring Demonstration
+
+### Current lab status
+
+| Phase | Status |
 | --- | --- |
-| Deliverable Verification | ✅ |
-| Accessibility Validation | ✅ |
-| Operations Handoff | ✅ |
+| Phase 1 Environment Setup | Complete |
+| Phase 2 Application Insights | Complete |
+| Phase 3 Azure Function Telemetry | Complete |
+| Phase 4 Dashboard and Workbook Design | Complete |
+| Phase 5 Alerting and Failure Investigation | Ready to Build |
 
-Assessment result:
-
-**Operations Handoff Ready**
-
----
-
-## Success criteria (Validated)
-
-The lab outcomes were validated against the following criteria:
-
-| Validation item | Status |
-| --- | --- |
-| Function App connected to Application Insights | ✅ |
-| Requests, traces, and exceptions visible in logs | ✅ |
-| Failing request investigated using KQL | ✅ |
-| Dependency telemetry available and correlated | ✅ |
-| Likely root cause identified from telemetry | ✅ |
-| Alert rule configured and validated | ✅ |
-| Azure Operations Dashboard created and published | ✅ |
-| Operational telemetry tiles pinned and rendering | ✅ |
-
-Assessment result:
-
-**Lab Success Criteria Fully Met**
-
----
-
-## Summary (Final)
-
-This consolidated lab delivered a full observability workflow using Azure Functions, Application Insights, and Azure Monitor. The implementation validated telemetry generation, ingestion, investigation, dependency tracing, KQL analytics, alerting, and operations dashboard readiness.
-
-Final outcome:
-
-**End-to-end telemetry and monitoring pipeline validated for BFCU operations use.**
+After Phase 5, the PoC demonstrates a complete Azure Monitor operational monitoring solution using Azure Functions, Application Insights, Dashboards, Workbooks, Alerts, and Incident Investigation.
