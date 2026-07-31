@@ -381,22 +381,50 @@ Result:
 
 - ✅ Operational telemetry available
 
-### Step 3.9 – Telemetry readiness assessment
+### Step 3.9 – Complete the telemetry readiness assessment
 
-| Category | Status |
+Run:
+
+```kusto
+union withsource=TelemetryTable requests, traces, dependencies, exceptions
+| where timestamp > ago(24h)
+| summarize
+    Records = count(),
+    OldestRecord = min(timestamp),
+    NewestRecord = max(timestamp)
+    by TelemetryTable
+| order by Records desc
+```
+
+Record the results:
+
+| Category | Validation |
 | --- | --- |
-| HealthCheck Endpoint | ✅ |
-| Request Telemetry | ✅ |
-| Azure Monitor Visibility | ✅ |
-| Application Insights Ingestion | ✅ |
-| Dashboard Data Source | ✅ |
-| Workbook Data Source | ✅ |
-| Alert Data Source | ✅ |
-| Investigation Data Source | ✅ |
+| Requests | Present |
+| HTTP result code | 200 |
+| Success state | True |
+| Request duration | Present |
+| Operation identifier | Present |
+| Invocation identifier | Present in custom dimensions |
+| Traces | Validate separately |
+| Dependencies | Not expected yet |
+| Exceptions | Not expected until a controlled failure is generated |
 
-Assessment result:
+Result:
 
-**Telemetry Pipeline Operational**
+**Telemetry readiness status: Ready for request-based monitoring.**
+
+Your local `HealthCheck` function is successfully sending request telemetry to Azure Application Insights through `APPLICATIONINSIGHTS_CONNECTION_STRING`. Azure Functions reads local application settings from the `Values` collection in `local.settings.json`. [Azure Functions app settings](https://learn.microsoft.com/en-us/azure/azure-functions/functions-app-settings), [Develop Azure Functions locally](https://learn.microsoft.com/en-us/azure/azure-functions/functions-develop-local)
+
+Next, validate the trace message with:
+
+```kusto
+traces
+| where timestamp > ago(24h)
+| where message contains "HealthCheck Function Executed"
+| project timestamp, message, severityLevel, operation_Id, customDimensions
+| order by timestamp desc
+```
 
 ---
 
