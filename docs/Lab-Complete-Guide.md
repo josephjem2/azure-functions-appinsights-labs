@@ -428,119 +428,256 @@ traces
 
 ---
 
-## Phase 4 – Azure Operations Dashboard and Workbook Design (Completed)
+## Phase 4 – Azure Operations Dashboard and Workbook Design
 
 ### Objective
 
-Use generated HealthCheck telemetry to build and validate operational monitoring visuals for dashboarding, investigation, and alert-readiness workflows.
+Transform HealthCheck telemetry into operational visibility.
 
-### Phase 4.1 – Validate telemetry before visual design
+At the end of Phase 4 you will have:
 
-Validation queries executed:
+- Request monitoring
+- Success rate monitoring
+- Performance monitoring
+- Operational investigation dashboard
+- Executive monitoring workbook
+- Technical investigation workbook
+
+### Phase 4.1 – Create Azure dashboard
+
+#### Step 1
+
+Open the Azure portal and search for:
+
+```text
+Dashboard
+```
+
+Then select Dashboard.
+
+#### Step 2
+
+Select:
+
+```text
++ New dashboard
+```
+
+Dashboard name:
+
+```text
+BFCU Monitoring Operations Dashboard
+```
+
+### Phase 4.2 – Dashboard tile #1: Request Volume
+
+Purpose: show workload activity over time.
+
+Application Insights query:
 
 ```kusto
 requests
-| order by timestamp desc
-```
-
-```kusto
-traces
-| order by timestamp desc
-```
-
-```kusto
-union requests, traces, dependencies, exceptions
-| summarize Records=count() by $table
-```
-
-Observed readiness:
-
-| Item | Observed result |
-| --- | --- |
-| Request Name | HealthCheck |
-| Success | True |
-| Result Code | 200 |
-| Duration | Present |
-| operation_Id | Present |
-| Trace Message | HealthCheck Function Executed |
-| Telemetry Inventory | requests and traces populated |
-
-Result:
-
-- ✅ Telemetry readiness confirmed for dashboards and workbooks
-
-### Phase 4.2 – Create Azure dashboard shell
-
-Dashboard created:
-
-| Setting | Value |
-| --- | --- |
-| Dashboard Name | BFCU-Monitoring-PoC |
-| Type | Custom Dashboard |
-
-Result:
-
-- ✅ Dashboard shell created and saved
-
-### Phase 4.3 – Add Request Volume tile
-
-Query used:
-
-```kusto
-requests
-| summarize RequestCount=count() by bin(timestamp, 1m)
-| order by timestamp asc
+| where name == "HealthCheck"
+| summarize RequestCount = count() by bin(timestamp, 1m)
 | render timechart
 ```
 
-Tile configuration:
+Configure tile:
 
-| Field | Value |
-| --- | --- |
-| Tile Name | Request Volume |
-| Purpose | Workload activity trend |
+- Title: Request Volume
+- Shows: traffic trends, workload activity, request spikes
 
-Result:
+### Phase 4.3 – Dashboard tile #2: Success Rate
 
-- ✅ Request volume visualization pinned
+Purpose: measure availability.
 
-### Phase 4.4 – Add Success Rate tile
+Query:
 
-Query used:
+```kusto
+requests
+| where name == "HealthCheck"
+| summarize
+    Total = count(),
+    Successful = countif(success == true)
+| extend SuccessRate = round((todouble(Successful) / todouble(Total)) * 100, 2)
+```
+
+Expected: 100% when all requests succeed.
+
+Pin to dashboard:
+
+- Title: Success Rate
+
+### Phase 4.4 – Dashboard tile #3: Response Time
+
+Purpose: measure performance.
+
+Query:
+
+```kusto
+requests
+| where name == "HealthCheck"
+| summarize AvgDurationMs = avg(duration / 1ms) by bin(timestamp, 1m)
+| render timechart
+```
+
+Pin tile:
+
+- Title: Average Response Time
+- Current values should be around 5 ms based on current telemetry
+
+### Phase 4.5 – Dashboard tile #4: Current Health
+
+Query:
+
+```kusto
+requests
+| where timestamp > ago(24h)
+| summarize
+    Requests = count(),
+    Successes = countif(success == true),
+    Failures = countif(success == false)
+```
+
+Pin tile:
+
+- Title: Current Health Status
+
+### Phase 4.6 – Dashboard tile #5: Recent Operations
+
+Purpose: investigation view.
+
+Query:
+
+```kusto
+requests
+| project
+    timestamp,
+    name,
+    resultCode,
+    success,
+    duration,
+    operation_Id
+| order by timestamp desc
+| take 20
+```
+
+This becomes your operational investigation table.
+
+### Phase 4.7 – Dashboard tile #6: Top Operations
+
+Query:
+
+```kusto
+requests
+| summarize Count = count() by name
+| order by Count desc
+```
+
+Pin tile:
+
+- Title: Top Operations
+
+Expected top operation:
+
+```text
+HealthCheck
+```
+
+### Phase 4.8 – Dashboard layout
+
+Row 1:
+
+- Request Volume
+- Success Rate
+- Average Response Time
+
+Row 2:
+
+- Current Health Status
+- Top Operations
+
+Row 3:
+
+- Recent Operations
+
+### Phase 4.9 – Create monitoring workbook
+
+In the Azure portal, search for:
+
+```text
+Workbooks
+```
+
+Then select:
+
+```text
++ New Workbook
+```
+
+Workbook name:
+
+```text
+BFCU Monitoring Workbook
+```
+
+#### Section 1 – Executive Summary
+
+Add a text control with content such as:
+
+```text
+BFCU Monitoring Overview
+
+This workbook provides operational visibility into application health, service reliability,
+request volume, performance trends, and failure investigations.
+```
+
+#### Section 2 – Request Trends
+
+Add a query control:
+
+```kusto
+requests
+| summarize Count = count() by bin(timestamp, 1m)
+| render timechart
+```
+
+Visualization: Time chart
+
+Title: Request Volume
+
+#### Section 3 – Availability
 
 ```kusto
 requests
 | summarize
-    Total=count(),
-    Successful=countif(success == true)
-| extend SuccessRate = todouble(Successful) * 100 / Total
+    Total = count(),
+    Successful = countif(success == true)
+| extend AvailabilityPercent = round((todouble(Successful) / todouble(Total)) * 100, 2)
 ```
 
-Observed sample:
+Visualization: Tiles
 
-| Metric | Example |
-| --- | --- |
-| Total Requests | 20 |
-| Success Rate | 100% |
+Title: Success Rate
 
-Tile configuration:
-
-| Field | Value |
-| --- | --- |
-| Tile Name | Request Success % |
-| Purpose | Reliability indicator |
-
-Result:
-
-- ✅ Availability metric pinned
-
-### Phase 4.5 – Add Recent Operations tile
-
-Query used:
+#### Section 4 – Performance
 
 ```kusto
 requests
-| order by timestamp desc
+| summarize
+    AverageMs = avg(duration / 1ms),
+    P95Ms = percentile(duration / 1ms, 95),
+    MaxMs = max(duration / 1ms)
+```
+
+Visualization: Grid
+
+Title: Average Response Time Metrics
+
+#### Section 5 – Operational Investigation
+
+```kusto
+requests
 | project
     timestamp,
     name,
@@ -548,148 +685,12 @@ requests
     resultCode,
     duration,
     operation_Id
-| take 20
+| order by timestamp desc
 ```
 
-Tile configuration:
+Visualization: Table
 
-| Field | Value |
-| --- | --- |
-| Tile Name | Recent Operations |
-| Purpose | Investigation starting point |
-
-Result:
-
-- ✅ Operational triage view pinned
-
-### Phase 4.6 – Add Exception Trend tile
-
-Query used:
-
-```kusto
-exceptions
-| summarize ExceptionCount=count() by bin(timestamp, 1h)
-| render timechart
-```
-
-Tile configuration:
-
-| Field | Value |
-| --- | --- |
-| Tile Name | Exception Trend |
-| Purpose | Failure trend monitoring |
-
-Result:
-
-- ✅ Exception trend visualization pinned
-
-### Phase 4.7 – Add Top Exception Types tile
-
-Query used:
-
-```kusto
-exceptions
-| summarize Count=count() by type
-| top 10 by Count
-| render piechart
-```
-
-Tile configuration:
-
-| Field | Value |
-| --- | --- |
-| Tile Name | Top Exception Types |
-| Purpose | Failure-source analysis |
-
-Result:
-
-- ✅ Exception type distribution pinned
-
-### Phase 4.8 – Add Response Duration tile
-
-Query used:
-
-```kusto
-requests
-| summarize AvgDuration=avg(duration) by bin(timestamp, 1m)
-| render timechart
-```
-
-Tile configuration:
-
-| Field | Value |
-| --- | --- |
-| Tile Name | Average Response Time |
-| Purpose | Performance trend monitoring |
-
-Result:
-
-- ✅ Latency monitoring visualization pinned
-
-### Phase 4.9 – Add operations runbook tile
-
-Runbook markdown added to dashboard:
-
-```markdown
-# BFCU Monitoring Operations
-1. Review Failed Requests
-2. Review Exceptions
-3. Review Recent Operations
-4. Locate operation_Id
-5. Correlate Requests and Traces
-6. Determine Failure Boundary
-7. Escalate to Owner
-
-Monitoring data helps identify the visible failure boundary but may not prove root cause.
-```
-
-Result:
-
-- ✅ Operations runbook embedded in dashboard
-
-### Phase 4.10 – Apply dashboard layout
-
-Layout applied:
-
-| Row | Tiles |
-| --- | --- |
-| Row 1 | Request Volume, Request Success %, Average Response Time |
-| Row 2 | Exception Trend, Top Exception Types |
-| Row 3 | Recent Operations |
-| Row 4 | Application Map (if available) |
-| Row 5 | Operations Runbook |
-
-Result:
-
-- ✅ Dashboard organized for executive and operations usage
-
-### Phase 4.11 – Define workbook blueprint
-
-Workbook blueprint prepared:
-
-| Workbook | Focus Areas |
-| --- | --- |
-| Executive | Overall health, availability, critical alerts, incident trends |
-| Operations | Failed requests, exceptions, dependencies, latency |
-| Investigation | operation_Id, requests, traces, exceptions, correlation timelines |
-
-Result:
-
-- ✅ Workbook requirements documented for next implementation phase
-
-### Phase 4 completion status
-
-| Category | Status |
-| --- | --- |
-| Telemetry Validation Before Visuals | ✅ |
-| Dashboard Construction | ✅ |
-| Operational Tiles | ✅ |
-| Runbook Integration | ✅ |
-| Workbook Design Blueprint | ✅ |
-
-Assessment result:
-
-**Operational Monitoring Visualization Ready**
+Title: Recent Operations
 
 ---
 
