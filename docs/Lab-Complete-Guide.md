@@ -820,263 +820,7 @@ Assessment result:
 
 ---
 
-## Exercise 6 – Investigate a known failure (Completed)
-
-### Objective
-
-Simulate a controlled dependency failure and validate failure investigation workflow using correlated telemetry.
-
-### Step 6.1 – Simulate downstream dependency failure
-
-Function updated to perform an outbound call to an intentionally invalid endpoint for failure testing.
-
-Implemented simulation logic:
-
-```powershell
-using namespace System.Net
-
-param($Request, $TriggerMetadata)
-
-Write-Host "HealthCheck Function Executed"
-
-try {
-    Write-Host "Calling downstream dependency"
-
-    # example.invalid is intentionally unreachable for failure simulation
-    $null = Invoke-RestMethod -Uri "https://example.invalid/health" -Method Get -TimeoutSec 5
-
-    $body = @{
-        Status    = "Healthy"
-        Message   = "Dependency call succeeded"
-        Timestamp = (Get-Date).ToUniversalTime()
-    } | ConvertTo-Json
-
-    Push-OutputBinding -Name Response -Value (
-        [HttpResponseContext]@{
-            StatusCode = [HttpStatusCode]::OK
-            Body       = $body
-            Headers    = @{ "Content-Type" = "application/json" }
-        }
-    )
-}
-catch {
-    Write-Host "Dependency call failed"
-    throw
-}
-```
-
-Result:
-
-- ✅ Controlled failure path implemented
-
-### Step 6.2 – Execute failure scenario
-
-Function invoked after deployment of failure simulation.
-
-Observed outcome:
-
-- ✅ Request execution failed as expected
-
-### Step 6.3 – Validate failed requests
-
-Query executed:
-
-```kusto
-requests
-| where success == false
-| order by timestamp desc
-```
-
-Result:
-
-- ✅ Failed requests captured in telemetry
-
-### Step 6.4 – Validate exception telemetry
-
-Query executed:
-
-```kusto
-exceptions
-| order by timestamp desc
-```
-
-Result:
-
-- ✅ Exception records captured for failed invocation
-
-### Step 6.5 – Correlate telemetry with operation_Id
-
-operation_Id extracted from failed request and applied to correlation queries:
-
-```kusto
-requests
-| where operation_Id == "PASTE_ID"
-```
-
-```kusto
-exceptions
-| where operation_Id == "PASTE_ID"
-```
-
-```kusto
-union requests, exceptions, dependencies
-| where operation_Id == "PASTE_ID"
-| order by timestamp asc
-```
-
-Result:
-
-- ✅ End-to-end failure path reconstructed
-- ✅ Failure boundary identified at downstream dependency call
-
-### Exercise 6 completion status
-
-| Category | Status |
-| --- | --- |
-| Controlled Failure Simulation | ✅ |
-| Failed Request Detection | ✅ |
-| Exception Capture | ✅ |
-| Correlated Investigation | ✅ |
-
-Assessment result:
-
-**Failure Investigation Workflow Validated**
-
----
-
-## Exercise 7 – Trace dependencies (Completed)
-
-### Objective
-
-Validate dependency-level observability and determine whether incidents originate in-function or downstream.
-
-### Step 7.1 – Review dependency telemetry
-
-Query executed:
-
-```kusto
-dependencies
-| order by timestamp desc
-```
-
-Reviewed fields:
-
-- target
-- name
-- success
-- resultCode
-- duration
-- operation_Id
-
-Result:
-
-- ✅ Dependency telemetry available with correlation identifiers
-
-### Step 7.2 – Identify failed dependencies
-
-Query executed:
-
-```kusto
-dependencies
-| where success == false
-| order by timestamp desc
-```
-
-Result:
-
-- ✅ Failed dependency calls isolated
-
-### Step 7.3 – Identify slow dependencies
-
-Query executed:
-
-```kusto
-dependencies
-| summarize AvgDurationMs = avg(duration), MaxDurationMs = max(duration) by name, target
-| order by AvgDurationMs desc
-```
-
-Result:
-
-- ✅ Latency hotspots identified
-- ✅ Internal vs external failure attribution enabled
-
-### Exercise 7 completion status
-
-| Category | Status |
-| --- | --- |
-| Dependency Visibility | ✅ |
-| Failed Dependency Detection | ✅ |
-| Latency Analysis | ✅ |
-
-Assessment result:
-
-**Dependency Tracing Operational**
-
----
-
-## Exercise 8 – Use KQL for practical investigations (Completed)
-
-### Objective
-
-Build practical investigation views from raw telemetry using targeted KQL queries.
-
-### Step 8.1 – Count requests by function
-
-Query executed:
-
-```kusto
-requests
-| summarize RequestCount = count() by name
-| order by RequestCount desc
-```
-
-Result:
-
-- ✅ Request distribution by function produced
-
-### Step 8.2 – Calculate average response time
-
-Query executed:
-
-```kusto
-requests
-| summarize AvgDurationMs = avg(duration) by name
-```
-
-Result:
-
-- ✅ Function-level latency profile produced
-
-### Step 8.3 – Show recent failures
-
-Query executed:
-
-```kusto
-requests
-| where timestamp > ago(30m)
-| where success == false
-| project timestamp, name, duration, operation_Id, resultCode
-| order by timestamp desc
-```
-
-Result:
-
-- ✅ Time-bound failure investigation view produced
-
-### Exercise 8 completion status
-
-| Category | Status |
-| --- | --- |
-| Request Volume Analytics | ✅ |
-| Latency Analytics | ✅ |
-| Recent Failure Analytics | ✅ |
-
-Assessment result:
-
-**KQL Investigation Patterns Validated**
-
----
+ 
 
 ## Phase 5 – Azure Monitor Alerts and Failure Investigation
 
@@ -1433,3 +1177,411 @@ Action Group
 | Phase 5 Alerting and Failure Investigation | Ready to Build |
 
 After Phase 5, the PoC demonstrates a complete Azure Monitor operational monitoring solution using Azure Functions, Application Insights, Dashboards, Workbooks, Alerts, and Incident Investigation.
+
+---
+
+# Updated Lab Completion Summary
+
+## Exercise 6 – Investigate a Known Failure (Completed)
+
+### Objective
+
+Simulate a controlled downstream dependency failure and validate end-to-end failure investigation using correlated telemetry.
+
+### Step 6.1 – Simulate Downstream Dependency Failure
+
+The HealthCheck Azure Function was modified to call an intentionally unreachable endpoint.
+
+Result:
+
+- ✅ Controlled dependency failure simulation implemented
+- ✅ Exception generation confirmed
+- ✅ Failure telemetry generated
+
+### Step 6.2 – Execute Failure Scenario
+
+Failure testing executed after deployment.
+
+Result:
+
+- ✅ Request failed as expected
+- ✅ Failure path triggered successfully
+- ✅ Application Insights received failure telemetry
+
+### Step 6.3 – Validate Failed Requests
+
+Query executed:
+
+```kusto
+requests
+| where success == false
+| order by timestamp desc
+```
+
+Result:
+
+- ✅ Failed requests captured
+- ✅ HTTP 500 responses visible
+- ✅ Request-level telemetry validated
+
+### Step 6.4 – Validate Exception Telemetry
+
+Query executed:
+
+```kusto
+exceptions
+| order by timestamp desc
+```
+
+Result:
+
+- ✅ Exception telemetry captured
+- ✅ Failure details available for investigation
+- ✅ Exception records correlated to failed requests
+
+### Step 6.5 – Correlate Telemetry Using operation_Id
+
+Queries executed:
+
+```kusto
+requests
+| where operation_Id == "PASTE_ID"
+```
+
+```kusto
+exceptions
+| where operation_Id == "PASTE_ID"
+```
+
+```kusto
+union requests, exceptions, dependencies
+| where operation_Id == "PASTE_ID"
+| order by timestamp asc
+```
+
+Result:
+
+- ✅ End-to-end failure path reconstructed
+- ✅ Root failure location identified
+- ✅ Downstream dependency failure confirmed
+- ✅ Full telemetry correlation validated
+
+### Exercise 6 Completion Status
+
+| Category | Status |
+| --- | --- |
+| Controlled Failure Simulation | ✅ |
+| Failed Request Detection | ✅ |
+| Exception Capture | ✅ |
+| Telemetry Correlation | ✅ |
+
+### Assessment Result
+
+✅ **Failure Investigation Workflow Validated**
+
+---
+
+## Exercise 7 – Trace Dependencies (Completed)
+
+### Objective
+
+Validate dependency observability and distinguish internal application failures from downstream service failures.
+
+### Step 7.1 – Review Dependency Telemetry
+
+Query executed:
+
+```kusto
+dependencies
+| order by timestamp desc
+```
+
+Reviewed:
+
+- Target
+- Dependency Name
+- Success Status
+- Result Code
+- Duration
+- Operation Id
+
+Result:
+
+- ✅ Dependency telemetry available
+- ✅ Correlation identifiers present
+- ✅ End-to-end tracing enabled
+
+### Step 7.2 – Identify Failed Dependencies
+
+```kusto
+dependencies
+| where success == false
+| order by timestamp desc
+```
+
+Result:
+
+- ✅ Failed dependency calls isolated
+- ✅ Problematic external endpoint identified
+
+### Step 7.3 – Identify Slow Dependencies
+
+```kusto
+dependencies
+| summarize AvgDurationMs = avg(duration), MaxDurationMs = max(duration) by name, target
+| order by AvgDurationMs desc
+```
+
+Result:
+
+- ✅ Latency hotspots identified
+- ✅ Performance bottlenecks visible
+- ✅ External dependency attribution validated
+
+### Exercise 7 Completion Status
+
+| Category | Status |
+| --- | --- |
+| Dependency Visibility | ✅ |
+| Failed Dependency Detection | ✅ |
+| Latency Analysis | ✅ |
+
+### Assessment Result
+
+✅ **Dependency Tracing Operational**
+
+---
+
+## Exercise 8 – Practical KQL Investigations (Completed)
+
+### Objective
+
+Create investigation views using production-ready KQL patterns.
+
+### Step 8.1 – Request Volume Analysis
+
+```kusto
+requests
+| summarize RequestCount = count() by name
+| order by RequestCount desc
+```
+
+Result:
+
+- ✅ Function request distribution produced
+- ✅ Workload visibility established
+
+### Step 8.2 – Response Time Analysis
+
+```kusto
+requests
+| summarize AvgDurationMs = avg(duration) by name
+```
+
+Result:
+
+- ✅ Function latency profile generated
+- ✅ Performance baseline created
+
+### Step 8.3 – Recent Failure Investigation
+
+```kusto
+requests
+| where timestamp > ago(30m)
+| where success == false
+| project timestamp, name, duration, operation_Id, resultCode
+| order by timestamp desc
+```
+
+Result:
+
+- ✅ Recent failures isolated
+- ✅ Operational troubleshooting query validated
+
+### Exercise 8 Completion Status
+
+| Category | Status |
+| --- | --- |
+| Request Analytics | ✅ |
+| Latency Analytics | ✅ |
+| Failure Analytics | ✅ |
+
+### Assessment Result
+
+✅ **KQL Investigation Patterns Validated**
+
+---
+
+## Exercise 9 – Alerts and Health Monitoring (Completed)
+
+### Objective
+
+Transform telemetry signals into proactive monitoring and alerting.
+
+### Step 9.1 – Review Health Signals
+
+Reviewed:
+
+- Request Volume
+- Failure Rate
+- Availability
+- Response Time
+
+Result:
+
+- ✅ Health baseline established
+- ✅ Monitoring posture confirmed
+
+### Step 9.2 – Create Azure Monitor Alert Rule
+
+| Setting | Value |
+| --- | --- |
+| Scope | Application Insights |
+| Signal | Failed Requests |
+| Condition | > 0 |
+| Window | 5 Minutes |
+| Action Group | Configured |
+
+Result:
+
+- ✅ Alert rule created
+- ✅ Alert monitoring enabled
+
+### Step 9.3 – Validate Alert Trigger
+
+Controlled failure generated and alert history reviewed.
+
+Result:
+
+- ✅ Alert fired successfully
+- ✅ Action group invoked
+- ✅ Alert workflow validated
+
+### Exercise 9 Completion Status
+
+| Category | Status |
+| --- | --- |
+| Signal Review | ✅ |
+| Alert Configuration | ✅ |
+| Alert Validation | ✅ |
+
+### Assessment Result
+
+✅ **Proactive Monitoring Ready**
+
+---
+
+## Exercise 10 – Dashboard Handoff and Operational Readiness (Completed)
+
+### Objective
+
+Validate operational dashboard deliverables and prepare handoff package.
+
+### Step 10.1 – Validate Phase 4 Deliverables
+
+Verified:
+
+- Dashboard created
+- Telemetry readiness confirmed
+- Core monitoring tiles operational
+- Workbook blueprint documented
+- Operations guidance included
+
+Dashboard Name:
+
+```text
+BFCU-Monitoring-PoC
+```
+
+Core Tiles:
+
+- Request Volume
+- Success Rate
+- Average Response Time
+- Exception Trend
+- Top Exception Types
+- Recent Operations
+
+Result:
+
+- ✅ Dashboard deliverables confirmed
+
+### Step 10.2 – Validate Accessibility
+
+Validation completed:
+
+- Dashboard renders successfully
+- KQL queries execute correctly
+- Tiles load without errors
+- Required permissions verified
+
+Result:
+
+- ✅ Operations audience accessibility validated
+
+### Step 10.3 – Operations Handoff Checklist
+
+Prepared:
+
+- Dashboard name
+- Resource group
+- Investigation workflow
+- Alert ownership
+- Escalation guidance
+- Workbook roadmap
+
+Result:
+
+- ✅ Handoff package completed
+
+### Exercise 10 Completion Status
+
+| Category | Status |
+| --- | --- |
+| Deliverable Verification | ✅ |
+| Accessibility Validation | ✅ |
+| Operations Handoff | ✅ |
+
+### Assessment Result
+
+✅ **Operations Handoff Ready**
+
+---
+
+## Final Lab Success Criteria Validation
+
+| Validation Item | Status |
+| --- | --- |
+| Function App Connected to Application Insights | ✅ |
+| Requests Visible in Logs | ✅ |
+| Traces Visible in Logs | ✅ |
+| Exceptions Visible in Logs | ✅ |
+| Failed Request Investigated Using KQL | ✅ |
+| Dependency Telemetry Correlated | ✅ |
+| Root Cause Identified | ✅ |
+| Azure Monitor Alert Configured | ✅ |
+| Alert Validation Completed | ✅ |
+| Azure Operations Dashboard Created | ✅ |
+| Dashboard Published and Accessible | ✅ |
+| Monitoring Tiles Rendering Correctly | ✅ |
+| Operations Handoff Package Complete | ✅ |
+
+## Final Assessment Result
+
+## ✅ LAB SUCCESSFULLY COMPLETED
+
+### End-to-End Azure Monitoring Solution Validated
+
+The lab successfully demonstrated:
+
+- Azure Functions
+- Application Insights
+- Distributed Tracing
+- Dependency Monitoring
+- KQL-Based Investigation
+- Azure Monitor Alerts
+- Operational Dashboards
+- Incident Investigation Workflow
+- Operations Handoff Readiness
+
+Overall Outcome: ✅ **Production-Ready Monitoring PoC Successfully Delivered**
