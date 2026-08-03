@@ -18,6 +18,71 @@ By the end of this lab, you will be able to operate confidently with telemetry d
 
 ---
 
+## Quick Start (10-minute demo path)
+
+Use this section when you want to run the live demo quickly before walking through the full lab details.
+
+1. Open a terminal in the repository root.
+2. Run preflight and local startup.
+3. Send test traffic to all demo endpoints.
+4. Validate telemetry in Azure Monitor and Application Insights.
+
+### Command checklist
+
+```powershell
+# 1) Clean stale host/build state
+Stop-Process -Name func -Force -ErrorAction SilentlyContinue
+Stop-Process -Name dotnet -Force -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force .\bin, .\obj -ErrorAction SilentlyContinue
+
+# 2) Start Azurite in a separate terminal
+azurite --silent --location .azurite --debug .azurite\debug.log
+
+# 3) Azure sign-in and subscription context
+az login --tenant b61bdd26-f7b1-4289-a1ed-8a84e24b7cb2 --use-device-code
+az account set --subscription f35793ab-d83c-4be0-a1a5-d2da45f53bcc
+az account show --output table
+
+# 4) Get the App Insights connection string
+az monitor app-insights component show --app app-insights-demo --resource-group MonitoredAssets --query connectionString -o tsv
+# Paste the output value into local.settings.json -> Values.APPLICATIONINSIGHTS_CONNECTION_STRING
+
+# 5) Restore/build/run (.NET isolated)
+dotnet restore
+dotnet build
+dotnet run
+```
+
+### Generate telemetry quickly
+
+In another terminal, run:
+
+```powershell
+Invoke-RestMethod "http://localhost:7071/api/HealthCheck"
+Invoke-RestMethod "http://localhost:7071/api/demo/trace"
+Invoke-RestMethod "http://localhost:7071/api/demo/dependency"
+
+try {
+    Invoke-RestMethod "http://localhost:7071/api/demo/failure" -ErrorAction Stop
+} catch {
+    Write-Host "Expected failure endpoint returned an error (this is intentional)."
+}
+```
+
+### Fast validation targets
+
+- You should see successful request telemetry for `/api/HealthCheck`.
+- You should see trace entries from `/api/demo/trace`.
+- You should see dependency telemetry from `/api/demo/dependency`.
+- You should see failure telemetry for `/api/demo/failure`.
+
+Important:
+
+- Run this project with `dotnet run`.
+- Do not use `func start` for this repository.
+
+---
+
 ## What you will learn
 
 After completing this lab, you will be able to:
@@ -72,6 +137,52 @@ Expected results:
 
 - Azure Functions Core Tools v4 is installed
 - .NET 8 SDK is available
+
+### Local preflight for this repository
+
+Use this preflight before running Exercise 3 to avoid common startup failures.
+
+1. Stop any stale host processes:
+
+```powershell
+Stop-Process -Name func -Force -ErrorAction SilentlyContinue
+Stop-Process -Name dotnet -Force -ErrorAction SilentlyContinue
+```
+
+2. Clean stale build output:
+
+```powershell
+Remove-Item -Recurse -Force .\bin, .\obj -ErrorAction SilentlyContinue
+```
+
+3. Start local storage emulator (required when `AzureWebJobsStorage` is `UseDevelopmentStorage=true`):
+
+```powershell
+azurite --silent --location .azurite --debug .azurite\debug.log
+```
+
+4. Sign in to Azure and set the subscription context:
+
+```powershell
+az login --tenant b61bdd26-f7b1-4289-a1ed-8a84e24b7cb2 --use-device-code
+az account set --subscription f35793ab-d83c-4be0-a1a5-d2da45f53bcc
+az account show --output table
+```
+
+5. Retrieve Application Insights connection string:
+
+```powershell
+az monitor app-insights component show --app app-insights-demo --resource-group MonitoredAssets --query connectionString -o tsv
+```
+
+6. Update `local.settings.json` with the connection string value.
+
+7. Start the function host using `dotnet run`.
+
+Important:
+
+- Use `dotnet run` for this .NET isolated project.
+- Do not use `func start` for this repository.
 
 ---
 
@@ -273,6 +384,30 @@ Validation:
 - ✅ Function Host started
 - ✅ Endpoint registered
 - ✅ Runtime initialized
+
+If startup fails, use this recovery sequence:
+
+```powershell
+Stop-Process -Name func -Force -ErrorAction SilentlyContinue
+Stop-Process -Name dotnet -Force -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force .\bin, .\obj -ErrorAction SilentlyContinue
+dotnet restore
+dotnet build
+dotnet run
+```
+
+If port 7071 is unavailable:
+
+```powershell
+Get-NetTCPConnection -LocalPort 7071 -State Listen | Select-Object OwningProcess,LocalPort,State
+```
+
+Stop the process shown in `OwningProcess`, then restart with `dotnet run`.
+
+If host health shows `Unable to access AzureWebJobsStorage`:
+
+- Ensure Azurite is running.
+- Ensure `Values.AzureWebJobsStorage` remains `UseDevelopmentStorage=true` in `local.settings.json`.
 
 ### Step 3.4 – Execute HealthCheck function
 
