@@ -1,0 +1,11 @@
+exceptions
+| where timestamp > ago(24h)
+| project
+    timestamp,
+    type,
+    problemId,
+    outerMessage,
+    operation_Id,
+    innermostMessage,
+    cloud_RoleName
+| order by timestamp desc

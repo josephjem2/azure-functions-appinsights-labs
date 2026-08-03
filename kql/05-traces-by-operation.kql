@@ -1,0 +1,17 @@
+let recentRequests =
+    requests
+    | where timestamp > ago(24h)
+    | project RequestTime = timestamp, name, operation_Id, resultCode, success;
+traces
+| where timestamp > ago(24h)
+| join kind=leftouter recentRequests on operation_Id
+| project
+    timestamp,
+    operation_Id,
+    message,
+    severityLevel,
+    name,
+    resultCode,
+    success,
+    RequestTime
+| order by timestamp desc

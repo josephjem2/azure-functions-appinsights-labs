@@ -1,0 +1,9 @@
+dependencies
+| where timestamp > ago(24h)
+| summarize
+    Calls = count(),
+    FailedCalls = countif(success == false),
+    AvgDurationMs = avg(duration / 1ms),
+    P95DurationMs = percentile(duration / 1ms, 95)
+    by name, target, type
+| order by Calls desc

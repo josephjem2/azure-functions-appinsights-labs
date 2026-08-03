@@ -1,0 +1,5 @@
+requests
+| where timestamp > ago(24h)
+| summarize RequestCount = count() by bin(timestamp, 5m), name
+| order by timestamp asc
+| render timechart

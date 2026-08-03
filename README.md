@@ -1,51 +1,98 @@
 # Azure Functions + Application Insights Labs
 
-Hands-on Azure Monitor and Application Insights labs using Azure Functions and .NET 8 isolated.
+Hands-on observability demo for Azure Functions using .NET 8 isolated, Application Insights, Azure Monitor, and KQL.
 
-## Overview
+## Demo Objective
 
-This repository contains practical labs focused on:
+This repository is optimized for a complete monitoring demo. It intentionally produces four telemetry categories so you can validate operational visibility end to end:
 
-- Azure Functions
-- Application Insights
-- Azure Monitor
-- Log Analytics
-- Kusto Query Language (KQL)
-- Telemetry Correlation
-- Failure Investigation
+- `requests` from the HealthCheck endpoint
+- `traces` from explicit structured logs
+- `dependencies` from outbound HTTP calls
+- `exceptions` from controlled failure scenarios
 
-## Single Lab Guide
+## Quick start
 
-### Azure Functions Monitoring with Application Insights
+1. Run prerequisites check:
 
-This repository now contains one comprehensive, end-to-end lab that covers the full monitoring workflow in a single place.
+```powershell
+./scripts/check-prereqs.ps1
+```
 
-It includes:
+2. Sign in and set subscription:
 
-- creating monitoring resources
-- connecting Azure Functions to Application Insights
-- generating and validating telemetry
-- investigating failures with KQL
-- tracing dependencies
-- configuring alerts and health monitoring
-- creating an Azure Operations Dashboard
+```powershell
+az login --tenant b61bdd26-f7b1-4289-a1ed-8a84e24b7cb2 --use-device-code
+az account set --subscription f35793ab-d83c-4be0-a1a5-d2da45f53bcc
+```
 
-Start here: [Complete Lab Guide](docs/Lab-Complete-Guide.md).
+3. Get Application Insights connection string:
 
-## Prerequisites
+```powershell
+az monitor app-insights component show --app app-insights-demo --resource-group MonitoredAssets --query connectionString -o tsv
+```
 
-- Azure Subscription
-- Azure Portal access
-- Visual Studio Code
-- Azure Functions Core Tools v4
-- .NET 8 SDK
+4. Update `local.settings.json` with the value from step 3:
 
-## Repository Structure
+- `Values.APPLICATIONINSIGHTS_CONNECTION_STRING`
+- `Values.AzureWebJobsStorage` should remain valid (`UseDevelopmentStorage=true` for local with Azurite)
+
+5. Start the function host:
+
+```powershell
+dotnet run
+```
+
+6. Generate demo telemetry in a second terminal:
+
+```powershell
+./scripts/generate-traffic.ps1
+```
+
+7. Validate telemetry using the KQL files in the `kql` folder.
+
+## Endpoints in this demo
+
+| Endpoint | Purpose | Telemetry generated |
+| --- | --- | --- |
+| `GET /api/HealthCheck` | Baseline availability check | requests, traces |
+| `GET /api/demo/trace` | Manual trace generation | traces |
+| `GET /api/demo/dependency` | Outbound HTTP dependency call | dependencies, traces |
+| `GET /api/demo/failure` | Intentional exception for testing | exceptions, failed requests |
+
+## KQL packs
+
+Use these ready-made KQL files in Application Insights Logs:
+
+1. `kql/01-requests-overview.kql`
+2. `kql/02-request-trend.kql`
+3. `kql/03-exceptions-details.kql`
+4. `kql/04-dependencies-health.kql`
+5. `kql/05-traces-by-operation.kql`
+6. `kql/06-endpoint-performance-scorecard.kql`
+
+## Detailed runbooks
+
+- Full lab walkthrough: [docs/Lab-Complete-Guide.md](docs/Lab-Complete-Guide.md)
+- Manual live-demo playbook: [docs/Manual-Demo-Runbook.md](docs/Manual-Demo-Runbook.md)
+
+Recommended flow:
+
+1. Follow [docs/Manual-Demo-Runbook.md](docs/Manual-Demo-Runbook.md) for live execution.
+2. Use [docs/Lab-Complete-Guide.md](docs/Lab-Complete-Guide.md) for full narrative, dashboard, workbook, and alerting phases.
+
+## Repository structure
 
 ```text
 azure-functions-appinsights-labs
 ├── docs/
+│   ├── Lab-Complete-Guide.md
+│   └── Manual-Demo-Runbook.md
 ├── HealthCheck/
+│   ├── HealthCheckFunction.cs
+│   └── TelemetryDemoFunction.cs
+├── kql/
+├── scripts/
 ├── Program.cs
 ├── azure-functions-appinsights-labs.csproj
 ├── host.json
@@ -53,10 +100,7 @@ azure-functions-appinsights-labs
 └── README.md
 ```
 
-## Technologies
+## Notes
 
-- Azure Functions (.NET 8 Isolated)
-- Azure Monitor
-- Application Insights
-- Log Analytics
-- KQL
+- `local.settings.json` stays local and should not contain production secrets in source control.
+- If you see a local warning about `AzureWebJobsStorage`, start Azurite or point `AzureWebJobsStorage` to a valid storage account connection string.

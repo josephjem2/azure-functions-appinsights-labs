@@ -1,0 +1,10 @@
+requests
+| where timestamp > ago(24h)
+| summarize
+    TotalRequests = count(),
+    SuccessRequests = countif(success == true),
+    FailureRequests = countif(success == false),
+    P50DurationMs = percentile(duration / 1ms, 50),
+    P95DurationMs = percentile(duration / 1ms, 95)
+    by name
+| order by TotalRequests desc

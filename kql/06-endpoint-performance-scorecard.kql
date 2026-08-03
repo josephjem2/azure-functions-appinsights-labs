@@ -1,0 +1,11 @@
+requests
+| where timestamp > ago(24h)
+| summarize
+    Total = count(),
+    Failed = countif(success == false),
+    SuccessRate = round(100.0 * todouble(countif(success == true)) / todouble(count()), 2),
+    AvgMs = round(avg(duration / 1ms), 2),
+    P95Ms = round(percentile(duration / 1ms, 95), 2),
+    P99Ms = round(percentile(duration / 1ms, 99), 2)
+    by name
+| order by SuccessRate asc, P95Ms desc

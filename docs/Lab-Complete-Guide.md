@@ -247,7 +247,7 @@ Result:
 Command:
 
 ```powershell
-func start
+dotnet run
 ```
 
 Observed output:
@@ -257,6 +257,15 @@ Functions:
 
 HealthCheck: [GET,POST]
 http://localhost:7071/api/HealthCheck
+
+GenerateTrace: [GET]
+http://localhost:7071/api/demo/trace
+
+CallDependency: [GET]
+http://localhost:7071/api/demo/dependency
+
+SimulateFailure: [GET]
+http://localhost:7071/api/demo/failure
 ```
 
 Validation:
@@ -312,14 +321,12 @@ Result:
 Command:
 
 ```powershell
-1..20 | ForEach-Object {
-    Invoke-RestMethod -Uri "http://localhost:7071/api/HealthCheck"
-}
+./scripts/generate-traffic.ps1
 ```
 
 Result:
 
-- ✅ 20 requests generated
+- ✅ Request, trace, dependency, and exception telemetry generated
 - ✅ Telemetry successfully sent
 
 ### Step 3.7 – Validate request telemetry
@@ -392,15 +399,15 @@ Record the results:
 | Request duration | Present |
 | Operation identifier | Present |
 | Invocation identifier | Present in custom dimensions |
-| Traces | Validate separately |
-| Dependencies | Not expected yet |
-| Exceptions | Not expected until a controlled failure is generated |
+| Traces | Present |
+| Dependencies | Present |
+| Exceptions | Present from controlled failure endpoint |
 
 Result:
 
 **Telemetry readiness status: Ready for request-based monitoring.**
 
-Your local `HealthCheck` function is successfully sending request telemetry to Azure Application Insights through `APPLICATIONINSIGHTS_CONNECTION_STRING`. Azure Functions reads local application settings from the `Values` collection in `local.settings.json`. [Azure Functions app settings](https://learn.microsoft.com/en-us/azure/azure-functions/functions-app-settings), [Develop Azure Functions locally](https://learn.microsoft.com/en-us/azure/azure-functions/functions-develop-local)
+Your local HealthCheck function is successfully sending request telemetry to Azure Application Insights through APPLICATIONINSIGHTS_CONNECTION_STRING. Azure Functions reads local application settings from the Values collection in local.settings.json. [Azure Functions app settings](https://learn.microsoft.com/en-us/azure/azure-functions/functions-app-settings), [Develop Azure Functions locally](https://learn.microsoft.com/en-us/azure/azure-functions/functions-develop-local)
 
 Next, validate the trace message with:
 
@@ -705,11 +712,11 @@ Visualization: Interactive Table
 
 ### Next Phase (Phase 5)
 
-Create a controlled failure mode in the HealthCheck Function:
+Use the dedicated failure endpoint for controlled fault simulation:
 
 ```text
 /api/HealthCheck           -> HTTP 200
-/api/HealthCheck?fail=true -> HTTP 500
+/api/demo/failure          -> HTTP 500
 ```
 
 This will allow you to generate:
@@ -848,7 +855,7 @@ Returns:
 Add a failure path:
 
 ```text
-GET /api/HealthCheck?fail=true
+GET /api/demo/failure
 ```
 
 Returns:
@@ -865,7 +872,12 @@ After publishing updated code, run:
 
 ```powershell
 1..10 | ForEach-Object {
-    Invoke-RestMethod -Uri "http://localhost:7071/api/HealthCheck?fail=true"
+    try {
+        Invoke-RestMethod -Uri "http://localhost:7071/api/demo/failure" -ErrorAction Stop
+    }
+    catch {
+        # Expected for demo telemetry generation.
+    }
 }
 ```
 
@@ -953,7 +965,7 @@ Application Insights
 Choose:
 
 ```text
-bfcu-appinsights
+app-insights-demo
 ```
 
 or your Application Insights resource.
@@ -1022,7 +1034,7 @@ Azure Monitor alert rules can invoke action groups for notification and automati
 Create failures:
 
 ```text
-/api/HealthCheck?fail=true
+/api/demo/failure
 ```
 
 Wait for alert evaluation.
@@ -1176,7 +1188,7 @@ Simulate a controlled downstream dependency failure and validate end-to-end fail
 
 ### Step 6.1 – Simulate Downstream Dependency Failure
 
-The HealthCheck Azure Function was modified to call an intentionally unreachable endpoint.
+The SimulateFailure endpoint was used to intentionally throw controlled exceptions for investigation.
 
 Result:
 
