@@ -1,6 +1,6 @@
 # Azure Functions + Application Insights Labs
 
-Hands-on Azure Monitor and Application Insights labs using Azure Functions and .NET 8.
+Hands-on Azure Monitor and Application Insights labs using Azure Functions and .NET 8 isolated.
 
 ## Overview
 
@@ -44,12 +44,12 @@ Start here: [Complete Lab Guide](docs/Lab-Complete-Guide.md).
 
 ```text
 azure-functions-appinsights-labs
-│
-├── docs
-├── images
-├── kql
-├── src
-│
+├── docs/
+├── HealthCheck/
+├── Program.cs
+├── azure-functions-appinsights-labs.csproj
+├── host.json
+├── local.settings.json
 └── README.md
 ```
 

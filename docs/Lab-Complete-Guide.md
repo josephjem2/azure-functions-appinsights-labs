@@ -1,19 +1,6 @@
 # Consolidated Lab – Azure Functions Monitoring with Application Insights
 
-<style>
-a {
-    text-decoration: none;
-    color: #464feb;
-}
-tr th, tr td {
-    border: 1px solid #e6e6e6;
-}
-tr th {
-    background-color: #f5f5f5;
-}
-</style>
-
-This single, detailed lab replaces the earlier split labs and provides one complete end-to-end experience for monitoring Azure Functions with Application Insights, Azure Monitor, Log Analytics, and Kusto Query Language (KQL).
+This lab provides one complete end-to-end experience for monitoring Azure Functions with Application Insights, Azure Monitor, Log Analytics, and Kusto Query Language (KQL).
 
 The goal is to walk you through the full lifecycle of observability in one continuous flow:
 
@@ -70,7 +57,7 @@ Before you begin, make sure you have:
 - Azure Functions extension
 - Azure Account extension
 - Azure Functions Core Tools v4
-- PowerShell 7
+- .NET 8 SDK
 
 ### Verify your local environment
 
@@ -78,13 +65,13 @@ Run the following commands:
 
 ```bash
 func --version
-pwsh --version
+dotnet --version
 ```
 
 Expected results:
 
 - Azure Functions Core Tools v4 is installed
-- PowerShell 7 is available
+- .NET 8 SDK is available
 
 ---
 
@@ -101,7 +88,7 @@ Resource group created with the following values:
 | Setting | Value |
 | --- | --- |
 | Resource Group | MonitoredAssets |
-| Region | East US |
+| Region | Central US |
 
 Result:
 
@@ -113,9 +100,9 @@ Application Insights created with the following values:
 
 | Setting | Value |
 | --- | --- |
-| Name | instrm-yourname |
+| Name | app-insights-demo |
 | Resource Group | MonitoredAssets |
-| Region | East US |
+| Region | Central US |
 | Workspace | Default |
 
 Result:
@@ -229,7 +216,7 @@ Function created with the following values:
 
 | Setting | Value |
 | --- | --- |
-| Runtime | PowerShell |
+| Runtime | .NET 8 isolated |
 | Function Type | HTTP Trigger |
 | Function Name | HealthCheck |
 | Authorization | Anonymous |
@@ -310,8 +297,7 @@ Updated local.settings.json:
     "IsEncrypted": false,
     "Values": {
         "AzureWebJobsStorage": "UseDevelopmentStorage=true",
-        "FUNCTIONS_WORKER_RUNTIME_VERSION": "7.4",
-        "FUNCTIONS_WORKER_RUNTIME": "powershell",
+        "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
         "APPLICATIONINSIGHTS_CONNECTION_STRING": "<Connection String>"
     }
 }
@@ -327,7 +313,7 @@ Command:
 
 ```powershell
 1..20 | ForEach-Object {
-        Invoke-RestMethod -Uri "http://localhost:7071/api/HealthCheck"
+    Invoke-RestMethod -Uri "http://localhost:7071/api/HealthCheck"
 }
 ```
 
