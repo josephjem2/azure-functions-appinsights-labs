@@ -39,8 +39,8 @@ Remove-Item -Recurse -Force .\bin, .\obj -ErrorAction SilentlyContinue
 azurite --silent --location .azurite --debug .azurite\debug.log
 
 # 3) Azure sign-in and subscription context
-az login --tenant b61bdd26-f7b1-4289-a1ed-8a84e24b7cb2 --use-device-code
-az account set --subscription f35793ab-d83c-4be0-a1a5-d2da45f53bcc
+az login --tenant <tenant-id> --use-device-code
+az account set --subscription <subscription-id>
 az account show --output table
 
 # 4) Get the App Insights connection string
@@ -164,8 +164,8 @@ azurite --silent --location .azurite --debug .azurite\debug.log
 4. Sign in to Azure and set the subscription context:
 
 ```powershell
-az login --tenant b61bdd26-f7b1-4289-a1ed-8a84e24b7cb2 --use-device-code
-az account set --subscription f35793ab-d83c-4be0-a1a5-d2da45f53bcc
+az login --tenant <tenant-id> --use-device-code
+az account set --subscription <subscription-id>
 az account show --output table
 ```
 
@@ -227,8 +227,8 @@ Connection string retrieved from Application Insights Properties and saved for F
 Example format:
 
 ```text
-InstrumentationKey=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx;
-IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/
+InstrumentationKey=<your-instrumentation-key>;
+IngestionEndpoint=https://<your-region>.in.applicationinsights.azure.com/
 ```
 
 Result:

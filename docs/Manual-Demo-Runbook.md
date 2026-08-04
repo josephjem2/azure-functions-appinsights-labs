@@ -39,8 +39,8 @@ Verify:
 Establish the correct tenant and subscription context for all Azure operations.
 
 ```powershell
-az login --tenant b61bdd26-f7b1-4289-a1ed-8a84e24b7cb2 --use-device-code
-az account set --subscription f35793ab-d83c-4be0-a1a5-d2da45f53bcc
+az login --tenant <tenant-id> --use-device-code
+az account set --subscription <subscription-id>
 az account show --output table
 ```
 

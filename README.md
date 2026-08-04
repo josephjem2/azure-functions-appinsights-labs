@@ -22,8 +22,8 @@ This repository is optimized for a complete monitoring demo. It intentionally pr
 2. Sign in and set subscription:
 
 ```powershell
-az login --tenant b61bdd26-f7b1-4289-a1ed-8a84e24b7cb2 --use-device-code
-az account set --subscription f35793ab-d83c-4be0-a1a5-d2da45f53bcc
+az login --tenant <tenant-id> --use-device-code
+az account set --subscription <subscription-id>
 ```
 
 3. Get Application Insights connection string:
